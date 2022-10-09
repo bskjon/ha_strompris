@@ -50,7 +50,7 @@ def getSone(selected_price_zone: str) -> int:
 
 
 def uidPrisSone(pris_sone: str) -> str:
-    return f"pris_sone_{pris_sone}"
+    return f"{DOMAIN.lower()}_pris_sone_{pris_sone}"
 
 
 async def async_setup_entry(
@@ -101,7 +101,7 @@ class StromSensor(SensorEntity):
 class StromPrisSensor(StromSensor):
     """Representation of a generic Strompris Sensor."""
 
-    _price_end: datetime
+    _price_end: datetime | None = None
 
     def __init__(self, pris_sone_nummer: int, pris_sone: str) -> None:
         super().__init__(pris_sone_nummer, pris_sone)
@@ -109,8 +109,8 @@ class StromPrisSensor(StromSensor):
         self._attr_native_unit_of_measurement = "NOK/kWh"
         self._attr_device_class = SensorDeviceClass.MONETARY
         self._attr_state_class = SensorStateClass.TOTAL
-        self._attr_name = f"Electricity price - {pris_sone}"
         self._attr_unique_id = uidPrisSone(pris_sone=pris_sone)
+        self._attr_name = f"Electricity price - {pris_sone}"
         self._model = "Price Sensor"
 
     @property
@@ -142,7 +142,7 @@ class StromPrisSensor(StromSensor):
             await self.strompris.async_get_current_price_attrs()
         )
 
-        if not self._price_end and self._price_end <= today[-1].start:
+        if self._price_end is None:
             self._price_end = today[-1].start
 
         today_price_attrs = {

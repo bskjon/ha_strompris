@@ -1,13 +1,21 @@
 {
   "domain": "strompris",
   "name": "strompris",
+  "version": "0.0.1",
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/strompris",
-  "requirements": ["pyStrompris>=0.0.4"],
+  "documentation": "https://github.com/bskjon/ha_strompris",
+  "issue_tracker": "https://github.com/bskjon/ha_strompris/issues",
+  "requirements": [
+    "pyStrompris>=0.0.4"
+  ],
   "ssdp": [],
   "zeroconf": [],
   "homekit": {},
-  "dependencies": ["recorder"],
-  "codeowners": ["@bskjon"],
+  "dependencies": [
+    "recorder"
+  ],
+  "codeowners": [
+    "@bskjon"
+  ],
   "iot_class": "cloud_polling"
 }
