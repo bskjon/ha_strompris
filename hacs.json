@@ -1,0 +1,6 @@
+{
+    "name": "strompris",
+    "domains": ["strompris"],
+    "iot_class": ["Cloud Polling"],
+    "render_readme": true
+  }

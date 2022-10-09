@@ -1,0 +1,13 @@
+{
+  "domain": "strompris",
+  "name": "strompris",
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/strompris",
+  "requirements": ["pyStrompris>=0.0.4"],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": ["recorder"],
+  "codeowners": ["@bskjon"],
+  "iot_class": "cloud_polling"
+}
