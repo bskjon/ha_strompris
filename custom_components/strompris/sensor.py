@@ -50,7 +50,7 @@ def getSone(selected_price_zone: str) -> int:
 
 
 def uidPrisSone(pris_sone: str) -> str:
-    return f"pris_sone_{pris_sone}"
+    return f"{DOMAIN.lower()}_pris_sone_{pris_sone}"
 
 
 async def async_setup_entry(
