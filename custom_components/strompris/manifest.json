@@ -1,12 +1,12 @@
 {
   "domain": "strompris",
   "name": "strompris",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "config_flow": true,
   "documentation": "https://github.com/bskjon/ha_strompris",
   "issue_tracker": "https://github.com/bskjon/ha_strompris/issues",
   "requirements": [
-    "pyStrompris>=0.0.7"
+    "pyStrompris==0.0.7"
   ],
   "ssdp": [],
   "zeroconf": [],
