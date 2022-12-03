@@ -212,6 +212,9 @@ class StromprisAlertSensor(StromSensor):
         floor = await self.strompris.async_get_extreme_price_reductions(tomorrow)
         roof = await self.strompris.async_get_extreme_price_increases(tomorrow)
         
+        _LOGGER.info("Floor", len(floor))
+        _LOGGER.info("Roof", len(roof))
+        
         floors = self.__group(floor)
         roofs = self.__group(roof)
         
@@ -259,10 +262,11 @@ class StromprisAlertSensor(StromSensor):
         
         floor: Optional[List[Pris]] = None
         if (len(floors) > 0):
-            floor = next(filter(lambda inner: inner != None and min(inner, key=lambda p: p.kwh) , floors))
+            floor = next(filter(lambda inner: inner != None and min(inner, key=lambda p: p.kwh) , floors), None)
+            
         roof: Optional[List[Pris]] = None
         if (len(roofs) > 0):
-            roof = next(filter(lambda inner: inner != None and max(inner, key=lambda p: p.kwh) , roofs))
+            roof = next(filter(lambda inner: inner != None and max(inner, key=lambda p: p.kwh) , roofs), None)
         
         if (floor != None and roof != None):
             if (floor[-1].start < roof[-1].start):
