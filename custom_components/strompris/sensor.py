@@ -45,13 +45,14 @@ from .const import DOMAIN, PRICE_ZONE, PRICE_ZONES
 _LOGGER = logging.getLogger(__name__)
 
 strompris: Strompris = None
+zone_no: str = None
 
 def getSone(selected_price_zone: str) -> int:
     return PRICE_ZONES.index(selected_price_zone) + 1
 
 
-def uidPrisSone(pris_sone: str) -> str:
-    return f"{DOMAIN.lower()}_pris_sone_no{pris_sone}"
+def uidPrisSone() -> str:
+    return f"{DOMAIN.lower()}_pris_sone_{zone_no}"
 
 
 async def async_setup_entry(
@@ -63,6 +64,8 @@ async def async_setup_entry(
     addable = []
 
     sone = hass.data[PRICE_ZONE]
+    global zone_no
+    zone_no = sone
     
     # Declaring global in order to make it re-usable
     global strompris
@@ -95,11 +98,12 @@ class StromprisSensor(StromSensor):
 
     def __init__(self, strompris: Strompris) -> None:
         super().__init__(strompris)
+        self._attr_extra_state_attributes = {}
         self._last_updated = None
         self._attr_native_unit_of_measurement = "NOK/kWh"
         self._attr_device_class = SensorDeviceClass.MONETARY
         self._attr_state_class = SensorStateClass.TOTAL
-        self._attr_unique_id = uidPrisSone(pris_sone=strompris.priceSource._price_zone)
+        self._attr_unique_id = uidPrisSone()
         self._attr_name = f"Electricity price - NO{strompris.priceSource._price_zone}"
         self._model = "Price Sensor"
 
@@ -180,10 +184,14 @@ class StromprisAlertSensor(StromSensor):
     TYPE_INCREASE = "INCREASE"
     TYPE_DECREASE = "DECREASE"
     
+    _last_updated: Optional[datetime] = None
+    
     def __init__(self, strompris: Strompris) -> None:
         super().__init__(strompris)
+        self._attr_extra_state_attributes = {}
+        self._last_updated = None
         self.__attr_friendly_name = "Electricity Price alert"
-        self._attr_unique_id = f"{uidPrisSone(pris_sone=strompris.priceSource._price_zone)}_ALERT"
+        self._attr_unique_id = f"{uidPrisSone()}_ALERT"
         self._attr_name = f"Electricity price - NO{strompris.priceSource._price_zone} ALERT"
         
     @property
@@ -191,10 +199,13 @@ class StromprisAlertSensor(StromSensor):
         """Icon of the entity."""
         return "mdi:flash-alert"
 
-    @Throttle(timedelta(minutes=15))
     async def async_update(self) -> None:
         """Update extreme price changes
         """
+        
+        if (self._last_updated != None and datetime.now() < (self._last_updated + timedelta(hours=1))):
+            return
+        
         tomorrow = await self.strompris.async_get_prices_for_tomorrow()
         if tomorrow is None or len(tomorrow) == 0:
             return
@@ -211,13 +222,16 @@ class StromprisAlertSensor(StromSensor):
             "tts": msgAttr["tts"]
         }
         self._attr_extra_state_attributes.update(attr)
+        self._attr_available = True
+        self._last_updated = datetime.now()
     
     def __group(self, prices: List[Pris]) -> List[List[Pris]]:
         grouped: List[List[Pris]] = []
-        
+        if len(prices) == 0:
+            return grouped
         group: List[Pris] = []
         for price in prices:
-            prev = group[-1]
+            prev = group[-1] if len(group) > 0 else None
             if (prev is None):
                 group.append(prev)
             else:
