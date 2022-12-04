@@ -133,7 +133,7 @@ class StromprisSensor(StromSensor):
         self._last_updated = current.start
 
         self._attr_extra_state_attributes.update(
-            await self.strompris.async_get_current_price_attrs()
+            await self.strompris.async_get_price_attrs()
         )
 
         if self._price_end is None:
