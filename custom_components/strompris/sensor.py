@@ -40,6 +40,8 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.util import Throttle, dt as dt_util
 
+from custom_components.strompris.message_compose import ComposeMessage
+
 from .const import DOMAIN, PRICE_ZONE, PRICE_ZONES
 
 _LOGGER = logging.getLogger(__name__)
@@ -199,6 +201,7 @@ class StromprisAlertSensor(StromSensor):
         """Icon of the entity."""
         return "mdi:flash-alert"
 
+    @Throttle(timedelta(minutes=5))
     async def async_update(self) -> None:
         """Update extreme price changes
         """
@@ -208,119 +211,22 @@ class StromprisAlertSensor(StromSensor):
         
         tomorrow = await self.strompris.async_get_prices_for_tomorrow()
         if tomorrow is None or len(tomorrow) == 0:
+            _LOGGER.warn("Electricity prices for tomorrow are not available yet")
             return
-        floor = await self.strompris.async_get_extreme_price_reductions(tomorrow)
-        roof = await self.strompris.async_get_extreme_price_increases(tomorrow)
         
-        _LOGGER.info("Floor", len(floor))
-        _LOGGER.info("Roof", len(roof))
+        floors = await self.strompris.async_get_extreme_price_reductions(tomorrow)
+        roofs = await self.strompris.async_get_extreme_price_increases(tomorrow)
         
-        floors = self.__group(floor)
-        roofs = self.__group(roof)
-        
-        msgAttr = self.__compose_message(floors=floors, roofs=roofs)        
+        cm = ComposeMessage(floors=floors, roofs=roofs)
+        messages = cm.compose(cm.get_floor(), cm.get_roof())
+         
         attr = {
             "friendly_name": "Electricity Price alert",
-            "message": msgAttr["message"],
-            "tts": msgAttr["tts"]
+            "message": messages["message"],
+            "tts": messages["tts"]
         }
         self._attr_extra_state_attributes.update(attr)
         self._attr_available = True
         self._last_updated = datetime.now()
     
-    def __group(self, prices: List[Pris]) -> List[List[Pris]]:
-        grouped: List[List[Pris]] = []
-        if len(prices) == 0:
-            return grouped
-        group: List[Pris] = []
-        for price in prices:
-            prev = group[-1] if len(group) > 0 else None
-            if (prev is None):
-                group.append(prev)
-            else:
-                if (prev.slutt == price.start):
-                    group.append(price)
-                else:
-                    if (len(group) > 0):
-                        grouped.append(group)
-                    group = []
-        return grouped
-        
-    def __compose_message(self, floors: List[List[Pris]], roofs: List[List[Pris]]) -> dict[str, str]:
-        #groups: List[PriceDef] = []       
-        messages: List[str] = []
-        tts: List[str] = []
-        if (len(floors) > 0 and len(roofs) > 0):
-            messages.append("Strømprisen for i morgen vil variere kraftig.")
-            tts.append("Strømprisen for i morgen vil variere kraftig.")
-        elif (len(floors) > 0 and len(roofs) == 0):
-            messages.append("Strømprisen for i morgen vil falle en del.")
-            tts.append("Strømprisen for i morgen vil falle en del.")
-        elif (len(floors) == 0 and len(roofs) > 0):
-            messages.append("Strømprisen for i morgen vil stige en del.")
-            tts.append("Strømprisen for i morgen vil stige en del.")
-        
-        floor: Optional[List[Pris]] = None
-        if (len(floors) > 0):
-            floor = next(filter(lambda inner: inner != None and min(inner, key=lambda p: p.kwh) , floors), None)
-            
-        roof: Optional[List[Pris]] = None
-        if (len(roofs) > 0):
-            roof = next(filter(lambda inner: inner != None and max(inner, key=lambda p: p.kwh) , roofs), None)
-        
-        if (floor != None and roof != None):
-            if (floor[-1].start < roof[-1].start):
-                # Start med floor
-                messages.append(self.__compose_message_price_change(floor, self.TYPE_DECREASE, False))
-                tts.append(self.__compose_message_price_change(floor, self.TYPE_DECREASE, True))
-            else:
-                messages.append(self.__compose_message_price_change(roof, self.TYPE_INCREASE, False))
-                tts.append(self.__compose_message_price_change(roof, self.TYPE_INCREASE, True))
-        elif (floor != None):
-            messages.append(self.__compose_message_price_change(floor, self.TYPE_DECREASE, False))
-            tts.append(self.__compose_message_price_change(floor, self.TYPE_DECREASE, True))
-        elif (roof != None):
-            messages.append(self.__compose_message_price_change(roof, self.TYPE_INCREASE, False))
-            tts.append(self.__compose_message_price_change(roof, self.TYPE_INCREASE, True))
-            
-        # Join arrays and assign to attr
-        message_str = ' '.join(messages)
-        tts_str = ' '.join(tts)
-        return {
-            "message": message_str,
-            "tts": tts_str
-        }
-            
     
-    def __ore_or_nok(self, pris: float, tts: bool = False) -> str:
-        if (pris < 1.0):
-            return "Øre"
-        else:
-            if (tts == False):
-                return "Kroner"
-            else:
-                return "Kr"
-        
-    def __compose_message_price_change(self, prices: List[Pris], type: TYPE_INCREASE | TYPE_DECREASE, tts: bool = False):
-        start = prices[0]
-        
-        time = "Kl"
-        if (tts):
-            time = "Klokken"
-        
-        current_direction: str
-        end_direction: str
-        if (type == self.TYPE_DECREASE):
-            current_direction = "falle"
-            end_direction = "øker"
-        else:
-            current_direction = "øke"
-            end_direction = "faller"
-        
-        if (len(Pris) == 1):
-            return f"Fra {time} {start.start.hour} til {time} {start.slutt.hour} vil prisen {current_direction} til {start.total} {self.__ore_or_nok(start.total, tts)}, før den {end_direction} igjen."
-        else:
-            slutt = prices[-1]
-            return f"I perioden Kl {start.start.hour} til Kl {slutt.slutt.hour} vil prisen falle til {start.total} {self.__ore_or_nok(start.total, tts)}, for deretter å ende på {slutt.total} {self.__ore_or_nok(slutt.total, tts)} før den øker igjen."
-                    
-        
