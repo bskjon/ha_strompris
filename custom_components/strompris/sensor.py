@@ -214,14 +214,14 @@ class StromprisAlertSensor(StromSensor):
             _LOGGER.warn("Electricity prices for tomorrow are not available yet")
             return
         
-        floors = await self.strompris.async_get_extreme_price_reductions(tomorrow)
-        roofs = await self.strompris.async_get_extreme_price_increases(tomorrow)
-        
-        cm = ComposeMessage(floors=floors, roofs=roofs)
-        messages = cm.compose(cm.get_floor(), cm.get_roof())
+        grouped = self.strompris.get_price_level_grouped(self.strompris.get_prices_with_level(tomorrow))
+                
+        cm = ComposeMessage(grouped)
+        messages = cm.compose()
          
         attr = {
             "friendly_name": "Electricity Price alert",
+            "title": messages["title"],
             "message": messages["message"],
             "tts": messages["tts"]
         }
